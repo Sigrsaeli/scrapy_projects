@@ -16,7 +16,7 @@ def should_abort_request(request):
 class KpNewsSpider(scrapy.Spider):
     name = "kp_news"
     allowed_domains = ["kp.ru"]
-    required_articles_count = 500
+    required_articles_count = 10000
     total_scanned_articles = 0
 
     custom_settings = {
@@ -32,7 +32,7 @@ class KpNewsSpider(scrapy.Spider):
         "MONGO_USER":"exprnc",
         "MONGO_PASSWORD":"1234",
         "MONGO_DB_COLLECTION":"kp_articles",
-        "CLOSESPIDER_ITEMCOUNT": 500
+        "CLOSESPIDER_ITEMCOUNT": 10000
     }
 
     def start_requests(self) -> Iterable[Request]:
@@ -62,12 +62,14 @@ class KpNewsSpider(scrapy.Spider):
 
     async def parse_article(self, response: Response):
         item = response.meta["item"]
-        item["title"] = response.xpath("//h1[@class='sc-j7em19-3 eyeguj']/text()").getall()
+        item["title"] = response.xpath("//h1[@class='sc-j7em19-3 eyeguj']/text()").get()
         item["description"] = response.xpath("//div[@class='sc-j7em19-4 nFVxV']/text()").get()
-        item["article_text"] = response.xpath("//div[@data-gtm-el='content-body']/text()").getall()
+        article_text = response.xpath("//p[@class='sc-1wayp1z-16 dqbiXu']/text()").getall()
+        item["article_text"] = ''.join([p.strip() for p in article_text])
         item["publication_datetime"] = response.xpath("//span[@class='sc-j7em19-1 dtkLMY']/text()").get()
         item["header_photo_url"] = response.xpath("//img[@class='sc-foxktb-1 cYprnQ']/@src").get()
-        item["header_photo_base64"] = PhotoDownloaderPipeline(35)
+        photo_downloader = PhotoDownloaderPipeline(35)
+        item["header_photo_base64"] = await photo_downloader.process_item(item)
         item["keywords"] = response.xpath("//a[@class='sc-1vxg2pp-0 cXMtmu']/text()").getall()
         item["author"] = response.xpath("//span[@class='sc-1jl27nw-1 bmkpOs']/text()").get()
 
