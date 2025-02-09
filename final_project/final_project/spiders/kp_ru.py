@@ -44,17 +44,19 @@ class KpNewsSpider(scrapy.Spider):
     async def parse(self, response: Response):
         page: Page = response.meta["playwright_page"]
 
-        item = FinalProjectItem()
-
         while self.total_scanned_articles < self.required_articles_count:
             page_selector = Selector(await page.content())
             articles = page_selector.xpath("//a[@class='sc-1tputnk-2 drlShK']/@href").getall()
             articles = articles[-25:]
             for article in articles:
+                item = FinalProjectItem()
                 item["source_url"] = response.urljoin(article)
-                yield scrapy.Request(url=response.urljoin(article), callback=self.parse_article, meta={"item":item})
-            await page.locator(selector="//button[@class='sc-abxysl-0 cdgmSL']").click(position={"x": 176, "y": 26.5})
-            await page.wait_for_timeout(10000)
+                yield scrapy.Request(url=response.urljoin(article), callback=self.parse_article, meta={"item":dict(item)})
+            if await page.locator("//button[@class='sc-abxysl-0 cdgmSL']").count() > 0:
+                await page.locator("//button[@class='sc-abxysl-0 cdgmSL']").click(position={"x": 176, "y": 26.5})
+                await page.wait_for_timeout(10000)
+            else:
+                break  
             self.total_scanned_articles += len(articles)
             print(self.total_scanned_articles)
             del articles
@@ -67,9 +69,11 @@ class KpNewsSpider(scrapy.Spider):
         article_text = response.xpath("//p[@class='sc-1wayp1z-16 dqbiXu']/text()").getall()
         item["article_text"] = ''.join([p.strip() for p in article_text])
         item["publication_datetime"] = response.xpath("//span[@class='sc-j7em19-1 dtkLMY']/text()").get()
-        item["header_photo_url"] = response.xpath("//img[@class='sc-foxktb-1 cYprnQ']/@src").get()
-        photo_downloader = PhotoDownloaderPipeline(35)
-        item["header_photo_base64"] = await photo_downloader.process_item(item)
+        header_photo_url = response.xpath("//img[@class='sc-foxktb-1 cYprnQ']/@src").get()
+        if header_photo_url:
+            item["header_photo_url"] = header_photo_url
+            photo_downloader = PhotoDownloaderPipeline(35)
+            item["header_photo_base64"] = await photo_downloader._download_photo_to_base64(item["header_photo_url"])
         item["keywords"] = response.xpath("//a[@class='sc-1vxg2pp-0 cXMtmu']/text()").getall()
         item["author"] = response.xpath("//span[@class='sc-1jl27nw-1 bmkpOs']/text()").get()
 
