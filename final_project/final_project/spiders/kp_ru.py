@@ -27,7 +27,7 @@ class KpNewsSpider(scrapy.Spider):
             "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
             "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
         },
-        "ITEM_PIPLINES":{"final_project.pipelines.MongoPipeline":100},
+        "ITEM_PIPELINES":{"final_project.pipelines.MongoPipeline":100},
         "MONGO_DB":"kp_ru",
         "MONGO_USER":"exprnc",
         "MONGO_PASSWORD":"1234",
